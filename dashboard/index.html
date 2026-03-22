@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clarity — AI Output Verification</title>
+    <style>
+        /* ===== Reset & Globals ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #0f1419 0%, #1a1f2e 100%);
+            color: #e4e6eb;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ===== Layout ===== */
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #4f46e5, #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .version {
+            font-size: 0.75rem;
+            color: #888;
+            margin-left: 0.5rem;
+        }
+
+        /* ===== Input Panel ===== */
+        .input-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .input-panel h2 {
+            font-size: 1rem;
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .form-group label {
+            font-size: 0.85rem;
+            color: #aaa;
+            font-weight: 500;
+        }
+
+        textarea, input[type="text"], input[type="number"], select {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            padding: 0.75rem;
+            color: #e4e6eb;
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        textarea:focus, input:focus, select:focus {
+            outline: none;
+            border-color: rgba(79, 70, 229, 0.5);
+            background: rgba(79, 70, 229, 0.1);
+            box-shadow: 0 0 10px rgba(79, 70, 229, 0.2);
+        }
+
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .controls-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .button {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            grid-column: 1 / -1;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(79, 70, 229, 0.3);
+        }
+
+        .button:active {
+            transform: translateY(0);
+        }
+
+        .button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* ===== Results Panel ===== */
+        .results-panel {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .results-panel.hidden {
+            display: none;
+        }
+
+        .score-section {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Score Ring Animation */
+        .score-ring-container {
+            position: relative;
+            width: 140px;
+            height: 140px;
+        }
+
+        svg.score-ring {
+            transform: rotate(-90deg);
+            width: 100%;
+            height: 100%;
+        }
+
+        .score-ring-background {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.1);
+            stroke-width: 12;
+        }
+
+        .score-ring-progress {
+            fill: none;
+            stroke: url(#gradient);
+            stroke-width: 12;
+            stroke-linecap: round;
+            animation: fillRing 1.5s ease-in-out forwards;
+        }
+
+        @keyframes fillRing {
+            from {
+                stroke-dashoffset: 432;
+            }
+            to {
+                stroke-dashoffset: 0;
+            }
+        }
+
+        .score-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .score-value {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #4f46e5, #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .score-label {
+            font-size: 0.7rem;
+            color: #888;
+        }
+
+        .score-info {
+            flex: 1;
+        }
+
+        .score-info h2 {
+            margin-bottom: 0.5rem;
+            font-size: 1.3rem;
+        }
+
+        .risk-badge {
+            display: inline-block;
+            padding: 0.4rem 1rem;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .risk-low {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .risk-medium {
+            background: rgba(251, 191, 36, 0.2);
+            color: #fbbf24;
+            border: 1px solid rgba(251, 191, 36, 0.3);
+        }
+
+        .risk-high {
+            background: rgba(249, 115, 22, 0.2);
+            color: #f97316;
+            border: 1px solid rgba(249, 115, 22, 0.3);
+        }
+
+        .risk-critical {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .score-description {
+            font-size: 0.9rem;
+            color: #bbb;
+            line-height: 1.6;
+        }
+
+        /* ===== Warnings Section ===== */
+        .warnings-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .warnings-section.hidden {
+            display: none;
+        }
+
+        .warnings-title {
+            font-size: 0.9rem;
+            color: #f97316;
+            margin-bottom: 0.75rem;
+            font-weight: 600;
+        }
+
+        .warning-card {
+            background: rgba(249, 115, 22, 0.05);
+            border-left: 3px solid #f97316;
+            border-radius: 6px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+            color: #fbbf24;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        /* ===== Agent Cards ===== */
+        .agents-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .agents-title {
+            font-size: 0.9rem;
+            color: #aaa;
+            margin-bottom: 1rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .agents-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .agent-card {
+            background: rgba(79, 70, 229, 0.05);
+            border: 1px solid rgba(79, 70, 229, 0.2);
+            border-radius: 8px;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            animation: slideUp 0.5s ease-out backwards;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .agent-card:nth-child(1) { animation-delay: 0.1s; }
+        .agent-card:nth-child(2) { animation-delay: 0.2s; }
+        .agent-card:nth-child(3) { animation-delay: 0.3s; }
+        .agent-card:nth-child(4) { animation-delay: 0.4s; }
+
+        .agent-card:hover {
+            background: rgba(79, 70, 229, 0.1);
+            border-color: rgba(79, 70, 229, 0.4);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 16px rgba(79, 70, 229, 0.2);
+        }
+
+        .agent-card.risk-low {
+            background: rgba(34, 197, 94, 0.05);
+            border-color: rgba(34, 197, 94, 0.2);
+        }
+
+        .agent-card.risk-medium {
+            background: rgba(251, 191, 36, 0.05);
+            border-color: rgba(251, 191, 36, 0.2);
+        }
+
+        .agent-card.risk-high {
+            background: rgba(249, 115, 22, 0.05);
+            border-color: rgba(249, 115, 22, 0.2);
+        }
+
+        .agent-card.risk-critical {
+            background: rgba(239, 68, 68, 0.05);
+            border-color: rgba(239, 68, 68, 0.2);
+        }
+
+        .agent-name {
+            font-size: 0.8rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+        }
+
+        .agent-score {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .agent-summary {
+            font-size: 0.8rem;
+            color: #bbb;
+            line-height: 1.4;
+            min-height: 2.4em;
+        }
+
+        .agent-details {
+            display: none;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.8rem;
+            color: #aaa;
+        }
+
+        .agent-card.expanded .agent-details {
+            display: block;
+        }
+
+        .agent-findings, .agent-suggestions {
+            margin-bottom: 0.75rem;
+        }
+
+        .agent-findings-label, .agent-suggestions-label {
+            font-weight: 600;
+            color: #ddd;
+            margin-bottom: 0.25rem;
+        }
+
+        .agent-findings-list, .agent-suggestions-list {
+            list-style: none;
+            margin-left: 0.5rem;
+        }
+
+        .agent-findings-list li, .agent-suggestions-list li {
+            padding: 0.25rem 0;
+            margin-left: 1rem;
+        }
+
+        .agent-findings-list li:before {
+            content: "• ";
+            color: #f97316;
+            margin-right: 0.5rem;
+        }
+
+        .agent-suggestions-list li:before {
+            content: "→ ";
+            color: #4f46e5;
+            margin-right: 0.5rem;
+        }
+
+        /* ===== Right Panel ===== */
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* ===== Output Panel ===== */
+        .output-panel {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            flex: 1;
+            min-height: 300px;
+        }
+
+        .output-panel h2 {
+            font-size: 1rem;
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+
+        .output-content {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Menlo, monospace;
+            font-size: 0.85rem;
+            color: #a1a1a1;
+            line-height: 1.6;
+            overflow-y: auto;
+            max-height: 100%;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        /* ===== Ada Chat Panel ===== */
+        .ada-panel {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            height: 350px;
+        }
+
+        .ada-panel h2 {
+            font-size: 1rem;
+            color: #fff;
+        }
+
+        .ada-panel.disabled {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            overflow-y: auto;
+            margin-bottom: 1rem;
+        }
+
+        .chat-message {
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            animation: messageSlideIn 0.3s ease-out;
+        }
+
+        @keyframes messageSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .chat-message.user {
+            background: rgba(79, 70, 229, 0.15);
+            border-left: 3px solid #4f46e5;
+            margin-left: 1rem;
+        }
+
+        .chat-message.assistant {
+            background: rgba(236, 72, 153, 0.1);
+            border-left: 3px solid #ec4899;
+            margin-right: 1rem;
+        }
+
+        .suggested-questions {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0.5rem;
+        }
+
+        .suggested-question {
+            background: rgba(79, 70, 229, 0.1);
+            border: 1px solid rgba(79, 70, 229, 0.3);
+            border-radius: 6px;
+            padding: 0.6rem 0.8rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #ccc;
+        }
+
+        .suggested-question:hover {
+            background: rgba(79, 70, 229, 0.2);
+            border-color: rgba(79, 70, 229, 0.5);
+            transform: translateX(4px);
+        }
+
+        /* ===== Loading State ===== */
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #888;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(79, 70, 229, 0.2);
+            border-top-color: #4f46e5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ===== Responsive ===== */
+        @media (max-width: 1200px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+
+            .agents-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .right-panel {
+                grid-column: 1;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+                gap: 1rem;
+            }
+
+            .agents-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .score-section {
+                flex-direction: column;
+                gap: 1.5rem;
+            }
+
+            .controls-row {
+                grid-template-columns: 1fr;
+            }
+
+            .ada-panel {
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">
+                Clarity
+                <span class="version">v0.1.0</span>
+            </div>
+            <div style="color: #888; font-size: 0.9rem;">
+                AI Output Verification Layer
+            </div>
+        </div>
+
+        <!-- Input Panel (Left) -->
+        <div class="input-panel">
+            <h2>Verify LLM Output</h2>
+
+            <div class="form-group">
+                <label>User Message</label>
+                <textarea id="userMessage" placeholder="Enter your prompt here...">Explain how React hooks work.</textarea>
+            </div>
+
+            <div class="form-group">
+                <label>System Prompt (optional)</label>
+                <textarea id="systemPrompt" placeholder="You are a helpful assistant..." style="min-height: 60px;"></textarea>
+            </div>
+
+            <div class="controls-row">
+                <div class="form-group">
+                    <label>Temperature</label>
+                    <input type="number" id="temperature" min="0" max="1" step="0.1" value="0.7">
+                </div>
+                <div class="form-group">
+                    <label>Max Tokens</label>
+                    <input type="number" id="maxTokens" min="100" max="4096" value="2048">
+                </div>
+            </div>
+
+            <button class="button" id="verifyBtn" onclick="handleVerify()">
+                Verify with Claude
+            </button>
+        </div>
+
+        <!-- Results Panel (Left) -->
+        <div id="resultsPanel" class="results-panel hidden">
+            <!-- Score Section -->
+            <div class="score-section">
+                <div class="score-ring-container">
+                    <svg class="score-ring" viewBox="0 0 140 140">
+                        <defs>
+                            <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#4f46e5;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#ec4899;stop-opacity:1" />
+                            </linearGradient>
+                        </defs>
+                        <circle class="score-ring-background" cx="70" cy="70" r="60"></circle>
+                        <circle class="score-ring-progress" id="scoreRingProgress" cx="70" cy="70" r="60"
+                                stroke-dasharray="432" stroke-dashoffset="432"></circle>
+                    </svg>
+                    <div class="score-text">
+                        <div class="score-value" id="scoreValue">--</div>
+                        <div class="score-label">Score</div>
+                    </div>
+                </div>
+
+                <div class="score-info">
+                    <h2>Trust Report</h2>
+                    <div id="riskBadge" class="risk-badge">--</div>
+                    <p class="score-description" id="scoreDescription">
+                        Run a verification to analyze your LLM output across four dimensions: hallucination detection, 
+                        reasoning validation, consistency checking, and prompt quality analysis.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Warnings Section -->
+            <div id="warningsSection" class="warnings-section hidden">
+                <div class="warnings-title">⚠️ Warnings</div>
+                <div id="warningsList"></div>
+            </div>
+
+            <!-- Agent Cards -->
+            <div class="agents-section">
+                <div class="agents-title">Verification Agents</div>
+                <div class="agents-grid" id="agentsGrid">
+                    <!-- Card content populated by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel -->
+        <div class="right-panel">
+            <!-- Output Panel -->
+            <div class="output-panel">
+                <h2>LLM Output</h2>
+                <div id="outputContent" class="output-content">Run a verification to see the LLM output here.</div>
+            </div>
+
+            <!-- Ada Chat Panel -->
+            <div class="ada-panel" id="adaPanel">
+                <h2>💬 Ask Ada</h2>
+                <div class="chat-area" id="chatArea">
+                    <div class="chat-message assistant">
+                        Hi! I'm Ada, your trust report explainer. Ask me any questions about your verification results.
+                    </div>
+                </div>
+                <div class="suggested-questions" id="suggestedQuestions">
+                    <button class="suggested-question" onclick="askQuestion('Why is my score this way?')">
+                        Why is my score this way?
+                    </button>
+                    <button class="suggested-question" onclick="askQuestion('Should I trust this output?')">
+                        Should I trust this output?
+                    </button>
+                    <button class="suggested-question" onclick="askQuestion('What are the warnings?')">
+                        What are the warnings?
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===== Global State =====
+        let currentReport = null;
+
+        // ===== API calls =====
+        async function handleVerify() {
+            const userMessage = document.getElementById('userMessage').value;
+            const systemPrompt = document.getElementById('systemPrompt').value;
+            const temperature = parseFloat(document.getElementById('temperature').value);
+            const maxTokens = parseInt(document.getElementById('maxTokens').value);
+
+            if (!userMessage.trim()) {
+                alert('Please enter a message to verify.');
+                return;
+            }
+
+            const verifyBtn = document.getElementById('verifyBtn');
+            verifyBtn.disabled = true;
+            verifyBtn.textContent = 'Verifying...';
+
+            try {
+                const response = await fetch('/api/v1/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        messages: [{ role: 'user', content: userMessage }],
+                        system: systemPrompt || null,
+                        temperature,
+                        max_tokens: maxTokens,
+                        tools: []
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API error: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                currentReport = data.trust_report;
+                displayResults(data);
+            } catch (error) {
+                alert(`Verification failed: ${error.message}`);
+                console.error(error);
+            } finally {
+                verifyBtn.disabled = false;
+                verifyBtn.textContent = 'Verify with Claude';
+            }
+        }
+
+        function displayResults(data) {
+            // Show results panel
+            document.getElementById('resultsPanel').classList.remove('hidden');
+
+            const report = data.trust_report;
+
+            // Score and risk
+            document.getElementById('scoreValue').textContent = Math.round(report.overall_score);
+            document.getElementById('riskBadge').textContent = report.overall_risk.toUpperCase();
+            document.getElementById('riskBadge').className = `risk-badge risk-${report.overall_risk}`;
+
+            // Score description
+            const descriptions = {
+                'low': 'Strong output with high confidence. Well-reasoned and factually grounded.',
+                'medium': 'Moderate quality. Some areas for improvement but generally reliable.',
+                'high': 'Significant concerns detected. Use with caution or seek alternatives.',
+                'critical': 'Critical issues found. Only use if you can verify independently.'
+            };
+            document.getElementById('scoreDescription').textContent = descriptions[report.overall_risk];
+
+            // Ring animation
+            const score = report.overall_score;
+            const circumference = 2 * Math.PI * 60; // radius = 60
+            const offset = circumference * (1 - score / 100);
+            const ringProgress = document.getElementById('scoreRingProgress');
+            ringProgress.style.strokeDashoffset = offset;
+
+            // Warnings
+            const warningsSection = document.getElementById('warningsSection');
+            if (report.warnings && report.warnings.length > 0) {
+                warningsSection.classList.remove('hidden');
+                const warningsList = document.getElementById('warningsList');
+                warningsList.innerHTML = report.warnings
+                    .map(w => `<div class="warning-card">${escapeHtml(w)}</div>`)
+                    .join('');
+            } else {
+                warningsSection.classList.add('hidden');
+            }
+
+            // Agent cards
+            const agentsGrid = document.getElementById('agentsGrid');
+            const agents = [
+                { key: 'hallacination', label: '🔍 Hallucination', data: report.hallucination },
+                { key: 'reasoning', label: '🧠 Reasoning', data: report.reasoning },
+                { key: 'confidence', label: '📊 Consistency', data: report.confidence },
+                { key: 'context_quality', label: '⚙️ Context Quality', data: report.context_quality }
+            ];
+
+            agentsGrid.innerHTML = agents
+                .map(agent => createAgentCard(agent.label, agent.data))
+                .join('');
+
+            // Add click handlers to expand cards
+            document.querySelectorAll('.agent-card').forEach((card, idx) => {
+                card.onclick = () => card.classList.toggle('expanded');
+            });
+
+            // Output content
+            document.getElementById('outputContent').textContent = data.content || '[No output]';
+
+            // Reset Ada chat
+            resetAdaChat();
+        }
+
+        function createAgentCard(label, agent) {
+            const riskClass = `risk-${agent.risk_level}`;
+            const findings = (agent.findings || []).slice(0, 2).map(f => `<li>${escapeHtml(f)}</li>`).join('');
+            const suggestions = (agent.suggestions || []).slice(0, 2).map(s => `<li>${escapeHtml(s)}</li>`).join('');
+
+            return `
+                <div class="agent-card ${riskClass}">
+                    <div class="agent-name">${label}</div>
+                    <div class="agent-score">${Math.round(agent.score)}</div>
+                    <div class="agent-summary">${escapeHtml(agent.summary)}</div>
+                    <div class="agent-details">
+                        ${findings ? `<div class="agent-findings"><div class="agent-findings-label">Findings</div><ul class="agent-findings-list">${findings}</ul></div>` : ''}
+                        ${suggestions ? `<div class="agent-suggestions"><div class="agent-suggestions-label">Suggestions</div><ul class="agent-suggestions-list">${suggestions}</ul></div>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        async function askQuestion(question) {
+            if (!currentReport) return;
+
+            // Add user question to chat
+            const chatArea = document.getElementById('chatArea');
+            chatArea.innerHTML += `<div class="chat-message user">${escapeHtml(question)}</div>`;
+
+            try {
+                const response = await fetch('/api/v1/explain', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        report_summary: currentReport,
+                        question: question
+                    })
+                });
+
+                if (!response.ok) throw new Error(`Error: ${response.statusText}`);
+
+                const data = await response.json();
+                chatArea.innerHTML += `<div class="chat-message assistant">${escapeHtml(data.explanation)}</div>`;
+                chatArea.scrollTop = chatArea.scrollHeight;
+
+                // Update suggested questions
+                if (data.suggested_questions) {
+                    document.getElementById('suggestedQuestions').innerHTML = data.suggested_questions
+                        .map(q => `<button class="suggested-question" onclick="askQuestion('${escapeHtml(q, true)}'">${escapeHtml(q)}</button>`)
+                        .join('');
+                }
+            } catch (error) {
+                console.error('Ada error:', error);
+                chatArea.innerHTML += `<div class="chat-message assistant">Sorry, I encountered an error. Let me try again...</div>`;
+            }
+        }
+
+        function resetAdaChat() {
+            const chatArea = document.getElementById('chatArea');
+            chatArea.innerHTML = `<div class="chat-message assistant">
+                Hi! I'm Ada, your trust report explainer. Ask me any questions about your verification results.
+            </div>`;
+
+            document.getElementById('suggestedQuestions').innerHTML = `
+                <button class="suggested-question" onclick="askQuestion('Why is my score this way?')">Why is my score this way?</button>
+                <button class="suggested-question" onclick="askQuestion('Should I trust this output?')">Should I trust this output?</button>
+                <button class="suggested-question" onclick="askQuestion('What are the warnings?')">What are the warnings?</button>
+            `;
+        }
+
+        // ===== Utilities =====
+        function escapeHtml(text, forAttr = false) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            const escaped = div.innerHTML;
+            if (forAttr) return escaped.replace(/"/g, '&quot;');
+            return escaped;
+        }
+
+        // Load sample report on page load for demo
+        window.onload = () => {
+            console.log('Clarity dashboard loaded');
+        };
+    </script>
+</body>
+</html>
