@@ -11,8 +11,9 @@ class ClaritySettings(BaseSettings):
     anthropic_api_key: str = Field(..., description="Anthropic API key for Claude")
 
     # InsForge Backend-as-a-Service
-    insforge_url: str = Field(..., description="InsForge project URL")
-    insforge_api_key: str = Field(..., description="InsForge API key")
+    insforge_url: str = Field(default="", description="InsForge project URL (legacy, can be empty)")
+    insforge_api_key: str = Field(default="", description="InsForge API key (legacy, can be empty)")
+    insforge_database_url: str = Field(default="", description="InsForge PostgreSQL connection string")
 
     # TinyFish Web Verification (Person B)
     tinyfish_api_key: str = Field(default="", description="TinyFish API key for web fact-checking")
