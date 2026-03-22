@@ -162,7 +162,7 @@ def test_models() -> Tuple[bool, List[str]]:
                 exchange_id="test-123",
                 overall_score=75.0,
                 overall_risk=RiskLevel.MEDIUM,
-                model_used="claude-sonnet-4-20250514",
+                model_used="claude-sonnet-4-6",
                 temperature=0.7,
                 hallucination=verdict,
                 reasoning=verdict,
@@ -218,7 +218,7 @@ def test_interceptor() -> Tuple[bool, List[str]]:
             # Test capture
             exchange = interceptor.capture_sync_call(
                 client=client,
-                model="claude-sonnet-4-20250514",
+                model="claude-sonnet-4-6",
                 messages=[{"role": "user", "content": "Say 'Hello, Clarity!'"}],
                 temperature=0.5,
                 max_tokens=50,

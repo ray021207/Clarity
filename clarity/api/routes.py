@@ -1,16 +1,14 @@
 """API endpoints for Clarity verification service."""
 
-import json
 from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 
-from clarity.proxy.interceptor import ClarityInterceptor
-from clarity.proxy.metadata import extract_verification_context
 from clarity.integrations.insforge_client import InsForgeClient
 from clarity.integrations.ada_client import AdaClient
-from clarity.models import TrustReport, CapturedExchange
+from clarity.models import TrustReport
+from clarity.sdk import ClarityClient
 from clarity.config import settings
 
 router = APIRouter()
@@ -24,7 +22,7 @@ class VerifyRequest(BaseModel):
     """Request body for /verify endpoint."""
     messages: list[dict[str, Any]]
     system: Optional[str] = None
-    model: str = "claude-sonnet-4-20250514"
+    model: str = "claude-sonnet-4-6"
     temperature: float = 0.7
     max_tokens: Optional[int] = None
     tools: list[dict[str, Any]] = []
@@ -56,47 +54,36 @@ async def verify(request: VerifyRequest, background_tasks: BackgroundTasks):
     Send messages → get LLM output + trust report.
     
     Flow:
-    1. Call Claude via interceptor (captures CapturedExchange)
+    1. Call Claude model via local SDK mode
     2. Extract verification context
-    3. Run verification pipeline (Person B's orchestrator)
-    4. Generate trust report
-    5. Persist to InsForge (async)
-    6. Return content + report to user
+    3. Run verification pipeline (LangGraph orchestrator)
+    4. Persist trust report to InsForge (async)
+    5. Return content + report to user
     """
     try:
-        # Step 1: Call Claude and capture exchange
-        from anthropic import Anthropic
-        anthropic_client = Anthropic(api_key=settings.anthropic_api_key)
-        
-        interceptor = ClarityInterceptor()
-        exchange = interceptor.capture_sync_call(
-            client=anthropic_client,
-            model=request.model,
+        client = ClarityClient(
+            local_mode=True,
+            anthropic_api_key=settings.anthropic_api_key,
+            tinyfish_api_key=settings.tinyfish_api_key,
+        )
+        result = client.verify(
             messages=request.messages,
             system=request.system,
+            model=request.model,
             temperature=request.temperature,
             max_tokens=request.max_tokens,
-            tools=request.tools if request.tools else None,
+            tools=request.tools,
         )
-        
-        # Step 2: Extract verification context
-        context = extract_verification_context(exchange)
-        
-        # Step 3: Run verification pipeline (currently a stub, Person B implements)
-        # For now, return mock report to let API route tests work
-        trust_report = _create_mock_trust_report(exchange, context)
-        
-        # Step 4: Persist to InsForge (async in background)
+
+        # Persist to InsForge in background (best-effort).
         background_tasks.add_task(
-            _persist_exchange_and_report,
-            exchange=exchange,
-            trust_report=trust_report,
+            _persist_trust_report,
+            trust_report=result.trust_report,
         )
-        
-        # Step 5: Return to user
+
         return VerifyResponse(
-            content=exchange.response.content,
-            trust_report=trust_report.to_dict(),
+            content=result.content,
+            trust_report=result.trust_report.to_dict(),
         )
     
     except Exception as e:
@@ -165,87 +152,9 @@ async def explain_report(request: ExplainRequest):
         )
 
 
-async def _persist_exchange_and_report(exchange: CapturedExchange, trust_report: TrustReport):
-    """Background task to persist exchange and report to InsForge."""
+async def _persist_trust_report(trust_report: TrustReport):
+    """Background task to persist trust report to InsForge."""
     try:
-        insforge_client.store_exchange_log(
-            exchange_id=exchange.exchange_id,
-            exchange_data=exchange.to_dict(),
-        )
         insforge_client.store_trust_report(trust_report)
     except Exception as e:
         print(f"Failed to persist to InsForge: {e}")
-
-
-def _create_mock_trust_report(exchange: CapturedExchange, context: dict[str, Any]) -> TrustReport:
-    """
-    Create a mock trust report for testing (Person B will replace with real orchestrator).
-    """
-    from clarity.models import AgentVerdict, RiskLevel
-    import uuid
-    
-    # Create mock verdicts
-    hallucination = AgentVerdict(
-        agent_name="hallucination_detector",
-        score=75,
-        risk_level=RiskLevel.MEDIUM,
-        summary="No obvious hallucinations detected.",
-        findings=["Output appears factually grounded"],
-        suggestions=["Consider verifying critical claims"],
-        details={},
-    )
-    
-    reasoning = AgentVerdict(
-        agent_name="reasoning_validator",
-        score=80,
-        risk_level=RiskLevel.LOW,
-        summary="Reasoning is logically sound.",
-        findings=["Logic flow is clear"],
-        suggestions=[],
-        details={},
-    )
-    
-    confidence = AgentVerdict(
-        agent_name="confidence_calibrator",
-        score=70,
-        risk_level=RiskLevel.MEDIUM,
-        summary="Output shows moderate consistency.",
-        findings=["Temperature 0.7 produces some variance"],
-        suggestions=["Lower temperature for deterministic outputs"],
-        details={},
-    )
-    
-    context_quality = AgentVerdict(
-        agent_name="context_analyzer",
-        score=85,
-        risk_level=RiskLevel.LOW,
-        summary="Good prompt quality and context usage.",
-        findings=["System prompt present", "Appropriate temperature"],
-        suggestions=[],
-        details={},
-    )
-    
-    # Calculate weighted average
-    overall_score = (
-        hallucination.score * 0.30 +
-        reasoning.score * 0.25 +
-        confidence.score * 0.25 +
-        context_quality.score * 0.20
-    )
-    
-    overall_risk = RiskLevel.LOW if overall_score > 80 else RiskLevel.MEDIUM
-    
-    return TrustReport(
-        report_id=str(uuid.uuid4()),
-        exchange_id=exchange.exchange_id,
-        overall_score=overall_score,
-        overall_risk=overall_risk,
-        hallucination=hallucination,
-        reasoning=reasoning,
-        confidence=confidence,
-        context_quality=context_quality,
-        warnings=["Mock report—use real orchestrator"],
-        model_used=exchange.request.model,
-        temperature=exchange.request.temperature,
-        tokens_used=exchange.response.input_tokens + exchange.response.output_tokens,
-    )

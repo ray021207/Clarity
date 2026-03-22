@@ -53,7 +53,11 @@ async def run_reasoning_check(context: dict[str, Any]) -> AgentVerdict:
     if not anthropic_key:
         raise RuntimeError("ANTHROPIC_API_KEY is required for reasoning analysis.")
 
-    analyzer_model = context.get("model") or "claude-sonnet-4-20250514"
+    analyzer_model = (
+        context.get("verifier_model")
+        or settings.clarity_verifier_model
+        or "claude-sonnet-4-6"
+    )
     prompt = {
         "conversation_messages": context.get("messages", []),
         "system_prompt": context.get("system_prompt"),

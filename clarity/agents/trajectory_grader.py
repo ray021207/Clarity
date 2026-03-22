@@ -256,7 +256,11 @@ async def run_trajectory_grader(
     if not anthropic_key:
         raise RuntimeError("ANTHROPIC_API_KEY is required for trajectory grading.")
 
-    model = context.get("model") or "claude-sonnet-4-20250514"
+    model = (
+        context.get("verifier_model")
+        or settings.clarity_verifier_model
+        or "claude-sonnet-4-6"
+    )
     format_issues = _collect_tool_format_issues(context)
     payload = _build_audit_payload(
         context=context,
