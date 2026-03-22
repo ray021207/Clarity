@@ -8,7 +8,7 @@ class ClaritySettings(BaseSettings):
     """Main settings class loads from .env file."""
 
     # Anthropic API
-    anthropic_api_key: str = Field(..., description="Anthropic API key for Claude")
+    anthropic_api_key: str = Field(default="", description="Anthropic API key for Claude")
 
     # InsForge Backend-as-a-Service
     insforge_url: str = Field(default="", description="InsForge project URL (legacy, can be empty)")
@@ -31,6 +31,7 @@ class ClaritySettings(BaseSettings):
         """Pydantic config."""
         env_file = ".env"
         case_sensitive = False
+        extra = "ignore"
 
 
 # Global settings singleton

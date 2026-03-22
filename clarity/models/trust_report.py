@@ -43,6 +43,10 @@ class TrustReport(BaseModel):
     reasoning: AgentVerdict = Field(..., description="Reasoning validator verdict")
     confidence: AgentVerdict = Field(..., description="Confidence calibrator verdict")
     context_quality: AgentVerdict = Field(..., description="Context analyzer verdict")
+    trajectory: Optional[AgentVerdict] = Field(
+        default=None,
+        description="Trajectory/tool execution grader verdict",
+    )
 
     # Metadata
     warnings: list[str] = Field(default_factory=list, description="Top-level warnings")
@@ -63,6 +67,7 @@ class TrustReport(BaseModel):
             "reasoning_score": self.reasoning.score,
             "confidence_score": self.confidence.score,
             "context_quality_score": self.context_quality.score,
+            "trajectory_score": self.trajectory.score if self.trajectory else None,
             "warnings": self.warnings,
             "model_used": self.model_used,
         }

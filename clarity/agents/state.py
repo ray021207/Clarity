@@ -1,22 +1,24 @@
-"""LangGraph shared state for verification pipeline (Person B will implement)."""
+"""LangGraph shared state for the verification pipeline."""
 
-from typing import TypedDict, Any, Optional
+from typing import Any, Optional, TypedDict
+
 from clarity.models import AgentVerdict
 
 
 class VerificationState(TypedDict, total=False):
-    """Shared state flowing through LangGraph StateGraph."""
+    """Shared state flowing through the LangGraph StateGraph."""
 
     # Input
     exchange_id: str
-    context: dict[str, Any]  # Output of extract_verification_context()
+    context: dict[str, Any]
 
-    # Agent verdicts
+    # Parallel node outputs
     hallucination_verdict: Optional[AgentVerdict]
     reasoning_verdict: Optional[AgentVerdict]
     confidence_verdict: Optional[AgentVerdict]
     context_quality_verdict: Optional[AgentVerdict]
+    trajectory_verdict: Optional[AgentVerdict]
 
-    # Aggregate output
+    # Aggregate outputs
     overall_score: Optional[float]
     warnings: list[str]
