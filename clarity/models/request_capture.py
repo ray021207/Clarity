@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 class RequestMetadata(BaseModel):
     """Metadata about the incoming LLM request."""
 
-    model: str = Field(..., description="Model name (e.g., 'claude-sonnet-4-20250514')")
+    model: str = Field(..., description="Model name (e.g., 'claude-sonnet-4-6')")
     system_prompt: Optional[str] = Field(default=None, description="System prompt if provided")
     messages: list[dict[str, Any]] = Field(..., description="User messages")
     temperature: float = Field(default=1.0, description="Temperature parameter")

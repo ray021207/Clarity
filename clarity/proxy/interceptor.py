@@ -23,7 +23,7 @@ class ClarityInterceptor:
         interceptor = ClarityInterceptor()
         exchange = interceptor.capture_sync_call(
             client=client,
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-6",
             messages=[{"role": "user", "content": "Hi"}],
             system="You are helpful",
             temperature=0.7,

@@ -63,7 +63,11 @@ async def _extract_claims_llm(context: dict[str, Any]) -> list[ClaimCandidate]:
     if not anthropic_key:
         raise RuntimeError("ANTHROPIC_API_KEY is required for hallucination claim extraction.")
 
-    model = context.get("model") or "claude-sonnet-4-20250514"
+    model = (
+        context.get("verifier_model")
+        or settings.clarity_verifier_model
+        or "claude-sonnet-4-6"
+    )
     output = context.get("response_content", "")
     if not output.strip():
         return []
@@ -114,7 +118,21 @@ async def run_hallucination_check(context: dict[str, Any]) -> AgentVerdict:
         )
 
     tinyfish = TinyFishClient(api_key=str(context.get("tinyfish_api_key", "") or ""))
-    verification_results = await tinyfish.verify_claims_batch([c.claim for c in claims])
+    try:
+        verification_results = await tinyfish.verify_claims_batch([c.claim for c in claims])
+    except Exception as exc:
+        # Degrade gracefully to inconclusive claim checks if TinyFish is slow/unavailable.
+        verification_results = [
+            {
+                "claim": c.claim,
+                "status": "inconclusive",
+                "verified": None,
+                "confidence": None,
+                "evidence": [],
+                "error": f"tinyfish_unavailable: {type(exc).__name__}: {exc}",
+            }
+            for c in claims
+        ]
 
     false_count = 0
     inconclusive_count = 0
