@@ -1,0 +1,31 @@
+{
+  "buildCommand": "pip install -r requirements.txt",
+  "outputDirectory": "dashboard",
+  "framework": "other",
+  "python": {
+    "version": "3.11"
+  },
+  "functions": {
+    "api/index.py": {
+      "memory": 3008,
+      "maxDuration": 60
+    }
+  },
+  "routes": [
+    {
+      "src": "/api/v1/(.*)",
+      "dest": "/api/index.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ],
+  "env": {
+    "ANTHROPIC_API_KEY": "@anthropic_api_key",
+    "INSFORGE_DATABASE_URL": "@insforge_database_url",
+    "INSFORGE_API_KEY": "@insforge_api_key",
+    "TINYFISH_API_KEY": "@tinyfish_api_key"
+  }
+}
+

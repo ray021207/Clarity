@@ -21,7 +21,7 @@ class StructuredIssue(BaseModel):
     issue_id: str = Field(..., min_length=1, max_length=100)
     category: str = Field(..., min_length=1, max_length=80)
     severity: str = Field(..., pattern="^(low|medium|high|critical)$")
-    message: str = Field(..., min_length=1, max_length=500)
+    message: str = Field(..., min_length=1, max_length=1000)
     evidence: dict[str, Any] = Field(default_factory=dict)
     suggested_fixes: list[str] = Field(default_factory=list)
 
@@ -31,7 +31,7 @@ class TrajectoryAuditPayload(BaseModel):
 
     overall_score: float = Field(..., ge=0, le=100)
     tool_compliance_score: float = Field(..., ge=0, le=100)
-    summary: str = Field(..., min_length=1, max_length=500)
+    summary: str = Field(..., min_length=1, max_length=2000)
     findings: list[str] = Field(default_factory=list)
     suggestions: list[str] = Field(default_factory=list)
     per_agent_scores: dict[str, float] = Field(default_factory=dict)
