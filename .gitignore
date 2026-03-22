@@ -49,3 +49,8 @@ htmlcov/
 
 # Logs
 *.log
+
+AGENT_IMPLEMENTATION_RESEARCH_2026-03-22.md
+CLARITY_CONTEXT.md
+DEMO_SCENARIOS.md
+test.ipynb
