@@ -30,8 +30,7 @@ def extract_verification_context(exchange: CapturedExchange) -> dict[str, Any]:
     # Check if tools were available but not used
     tools_available_but_unused = (
         len(req.tools_provided) > 0 and
-        resp.tool_calls is None or
-        len(resp.tool_calls) == 0
+        (resp.tool_calls is None or len(resp.tool_calls) == 0)
     )
     
     # Is output truncated?

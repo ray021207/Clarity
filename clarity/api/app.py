@@ -25,13 +25,13 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     
-    # Mount dashboard as static files
+    # Import and include routes FIRST (before static file mounting)
+    from .routes import router
+    app.include_router(router, prefix="/api/v1")
+    
+    # Mount dashboard as static files (after routes)
     dashboard_path = Path(__file__).parent.parent.parent / "dashboard"
     if dashboard_path.exists():
         app.mount("/", StaticFiles(directory=str(dashboard_path), html=True), name="dashboard")
-    
-    # Import and include routes
-    from .routes import router
-    app.include_router(router, prefix="/api/v1")
     
     return app
