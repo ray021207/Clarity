@@ -5,6 +5,7 @@ Usage examples:
   python demo_video_test.py --all
   python demo_video_test.py --scenario 2
   python demo_video_test.py --scenario 1 --model claude-sonnet-4-6
+  python demo_video_test.py --scenario 1 --show-sdk-usage --show-sdk-object
   python demo_video_test.py --all --save-dir demo_outputs
   python demo_video_test.py --all --remote-url http://localhost:8000
 """
@@ -135,6 +136,42 @@ def _to_serializable(result: Any, scenario: DemoScenario, duration_s: float) -> 
     }
 
 
+def _sdk_response_payload(result: Any) -> dict[str, Any]:
+    """SDK-style response payload for demo visualization."""
+    return {
+        "content": result.content,
+        "score": result.score,
+        "risk": result.risk,
+        "warnings": result.warnings,
+        "summary": result.summary,
+        "trust_report": result.trust_report.to_dict(),
+    }
+
+
+def _print_sdk_usage_examples(args: argparse.Namespace) -> None:
+    print()
+    print("=" * 84)
+    print("SDK USAGE EXAMPLES")
+    print("=" * 84)
+    print("Local mode:")
+    print("from clarity.sdk import ClarityClient")
+    print("client = ClarityClient(local_mode=True)")
+    print("result = client.verify(")
+    print("    messages=[{\"role\": \"user\", \"content\": \"Write a Python function for binary search.\"}],")
+    print("    system=\"You are a senior Python engineer.\",")
+    print(f"    model=\"{args.model}\",")
+    print("    temperature=0.2,")
+    print(")")
+    print("print(result.content)")
+    print("print(result.score, result.risk, result.warnings)")
+    print("print(result.trust_report.to_dict())")
+    print()
+    print("Remote mode:")
+    print("client = ClarityClient(clarity_api_url=\"http://localhost:8000\")")
+    print("result = client.verify(messages=[{\"role\": \"user\", \"content\": \"...\"}])")
+    print("=" * 84)
+
+
 def _print_header(args: argparse.Namespace) -> None:
     print("=" * 84)
     print("CLARITY DEMO VIDEO RUNNER")
@@ -145,6 +182,8 @@ def _print_header(args: argparse.Namespace) -> None:
         print("Mode       : local (Claude + TinyFish + verifier agents)")
     print(f"Model      : {args.model}")
     print(f"Save dir   : {args.save_dir}")
+    print(f"SDK usage  : {'on' if args.show_sdk_usage else 'off'}")
+    print(f"SDK object : {'on' if args.show_sdk_object else 'off'}")
     print("=" * 84)
 
 
@@ -204,6 +243,8 @@ def run(args: argparse.Namespace) -> int:
     save_dir.mkdir(parents=True, exist_ok=True)
 
     _print_header(args)
+    if args.show_sdk_usage:
+        _print_sdk_usage_examples(args)
 
     client = _build_client(args)
     failures = 0
@@ -221,6 +262,17 @@ def run(args: argparse.Namespace) -> int:
             )
             duration_s = time.perf_counter() - start
             _print_result_block(result, duration_s, args.max_content_chars)
+
+            if args.show_sdk_object:
+                payload = _sdk_response_payload(result)
+                payload_json = json.dumps(payload, indent=2, ensure_ascii=False)
+                print("SDK Response Object:")
+                print(f"  type(result) : {type(result).__name__}")
+                print(f"  repr(result) : {result!r}")
+                if len(payload_json) > args.max_json_chars:
+                    print(payload_json[: args.max_json_chars].rstrip() + "\n... (truncated)")
+                else:
+                    print(payload_json)
 
             payload = _to_serializable(result, scenario, duration_s)
             out_path = save_dir / f"scenario_{scenario.id}_{int(time.time())}.json"
@@ -259,6 +311,22 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=320,
         help="Max output chars shown in terminal snippet.",
+    )
+    parser.add_argument(
+        "--show-sdk-usage",
+        action="store_true",
+        help="Print short SDK integration snippets (local + remote) at start.",
+    )
+    parser.add_argument(
+        "--show-sdk-object",
+        action="store_true",
+        help="Print ClarityResult-style response object for each scenario.",
+    )
+    parser.add_argument(
+        "--max-json-chars",
+        type=int,
+        default=5000,
+        help="Max chars shown for printed SDK response JSON.",
     )
     parser.add_argument(
         "--remote-url",
