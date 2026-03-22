@@ -87,14 +87,23 @@ class TinyFishClient:
         if not self.api_key:
             raise RuntimeError("TINYFISH_API_KEY is required. Please set it in your environment.")
 
+        target_url = source_url.strip() or "https://en.wikipedia.org/wiki/Main_Page"
         payload: dict[str, Any] = {
+            # TinyFish automation endpoint expects these top-level fields.
+            "url": target_url,
+            "goal": (
+                "Fact-check this claim using reliable sources reachable from the page.\n"
+                f"Claim: {claim}\n"
+                "Return JSON object with keys: verified (boolean), verdict (string), "
+                "confidence (0..1), evidence (array of source snippets/urls)."
+            ),
+            # Keep task metadata for compatibility with previous integration attempts.
             "task": {
                 "type": "fact_check",
                 "claim": claim,
-            }
+                "source_url": target_url,
+            },
         }
-        if source_url:
-            payload["task"]["source_url"] = source_url
 
         headers = {"X-API-Key": self.api_key, "Content-Type": "application/json"}
 

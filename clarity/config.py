@@ -9,6 +9,7 @@ class ClaritySettings(BaseSettings):
 
     # Anthropic API
     anthropic_api_key: str = Field(default="", description="Anthropic API key for Claude")
+    groq_api_key: str = Field(default="", description="Groq API key (optional alternative provider)")
 
     # InsForge Backend-as-a-Service
     insforge_url: str = Field(default="", description="InsForge project URL (legacy, can be empty)")
@@ -26,6 +27,10 @@ class ClaritySettings(BaseSettings):
     clarity_env: str = Field(default="development", description="Environment: development, staging, production")
     clarity_log_level: str = Field(default="INFO", description="Log level")
     clarity_confidence_samples: int = Field(default=3, description="Number of samples for confidence agent")
+    clarity_verifier_model: str = Field(
+        default="claude-sonnet-4-6",
+        description="Model used by verification/auditor agents",
+    )
 
     class Config:
         """Pydantic config."""

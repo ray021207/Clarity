@@ -32,6 +32,7 @@ _PLACEHOLDER_KEYS = {
     "your-tinyfish-api-key-here",
     "your-api-key-here",
     "sk-ant-xxxxxxxxxxxxxxxxxxxxx",
+    "gsk_xxxxxxxxxxxxxxxxxxxxx",
 }
 _WEIGHTS = {
     # Tuned to emphasize factual reliability while preserving trajectory/tool quality.
@@ -60,6 +61,7 @@ def _resolve_required_api_key(context: dict[str, Any], key_name: str) -> str:
         lowered in _PLACEHOLDER_KEYS
         or lowered.startswith("your-")
         or lowered.startswith("sk-ant-xxxxxxxx")
+        or lowered.startswith("gsk_x")
     )
     if (not value) or looks_placeholder:
         raise RuntimeError(

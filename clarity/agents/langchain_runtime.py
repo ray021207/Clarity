@@ -31,7 +31,7 @@ def build_structured_model(
         temperature=temperature,
         max_tokens=max_tokens,
     )
-    return llm.with_structured_output(schema, method="json_schema")
+    return llm.with_structured_output(schema, method="function_calling")
 
 
 def build_text_model(

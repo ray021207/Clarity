@@ -25,7 +25,7 @@ def main():
     """)
     
     print(f"📡 Environment: {settings.clarity_env}")
-    print(f"🔑 Model: claude-sonnet-4-20250514")
+    print(f"🔑 Model: claude-sonnet-4-6")
     print(f"🌐 Running on http://localhost:8000")
     print(f"📊 Dashboard at http://localhost:8000/")
     print(f"🔌 API at http://localhost:8000/api/v1/")

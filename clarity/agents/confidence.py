@@ -118,7 +118,12 @@ async def run_confidence_check(context: dict[str, Any]) -> AgentVerdict:
     """Estimate confidence by checking response stability across repeated generations."""
     base_output = (context.get("response_content") or "").strip()
     base_temp = float(context.get("temperature", 0.7) or 0.7)
-    model = context.get("model") or "claude-sonnet-4-20250514"
+    sample_model = context.get("model") or "claude-sonnet-4-6"
+    auditor_model = (
+        context.get("verifier_model")
+        or settings.clarity_verifier_model
+        or "claude-sonnet-4-6"
+    )
     messages = context.get("messages") or []
     system_prompt = context.get("system_prompt")
     max_tokens = int(context.get("max_tokens") or 1024)
@@ -136,7 +141,7 @@ async def run_confidence_check(context: dict[str, Any]) -> AgentVerdict:
 
     tasks = [
         _sample_once(
-            model_name=model,
+            model_name=sample_model,
             anthropic_key=anthropic_key,
             messages=messages,
             system_prompt=system_prompt,
@@ -166,7 +171,7 @@ async def run_confidence_check(context: dict[str, Any]) -> AgentVerdict:
         raise RuntimeError("Confidence agent could not produce any resampled outputs.")
 
     structured_llm = build_structured_model(
-        model=model,
+        model=auditor_model,
         anthropic_api_key=anthropic_key,
         schema=ConfidenceAuditPayload,
         temperature=0.0,

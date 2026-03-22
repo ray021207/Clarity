@@ -53,7 +53,11 @@ async def run_context_quality_check(context: dict[str, Any]) -> AgentVerdict:
     if not anthropic_key:
         raise RuntimeError("ANTHROPIC_API_KEY is required for context quality analysis.")
 
-    analyzer_model = context.get("model") or "claude-sonnet-4-20250514"
+    analyzer_model = (
+        context.get("verifier_model")
+        or settings.clarity_verifier_model
+        or "claude-sonnet-4-6"
+    )
     context_payload = {
         "has_system_prompt": context.get("has_system_prompt"),
         "system_prompt_length": context.get("system_prompt_length"),
